@@ -9,6 +9,7 @@ imgbeddings = "*"
 psycopg2-binary = "*"
 fastapi = "*"
 uvicorn = "*"
+numpy = "*"
 
 [dev-packages]
 

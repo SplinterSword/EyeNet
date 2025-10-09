@@ -1,7 +1,8 @@
+import os
 import cv2
-import numpy as np
 import psycopg2
-from typing import Tuple, List, Optional, Any
+import numpy as np
+from typing import Tuple, List
 from imgbeddings import imgbeddings
 from psycopg2.extensions import cursor, connection
 
@@ -13,7 +14,7 @@ haar_cascade: cv2.CascadeClassifier = cv2.CascadeClassifier(HAAR_CASCADE_PATH)
 
 # Database connection
 try:
-    conn: connection = psycopg2.connect()
+    conn: connection = psycopg2.connect(os.getenv("POSTGRES_SERVICE_URI"))
 except psycopg2.Error as e:
     raise RuntimeError(f"Failed to connect to the database: {e}")
 
