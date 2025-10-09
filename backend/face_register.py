@@ -5,6 +5,9 @@ import numpy as np
 from typing import Tuple, List
 from imgbeddings import imgbeddings
 from psycopg2.extensions import cursor, connection
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Constants
 HAAR_CASCADE_PATH: str = "haarcascade_frontalface_default.xml"
