@@ -4,13 +4,15 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-opencv-python = "*"
-imgbeddings = "*"
-psycopg2-binary = "*"
+tensorflow = "*"
 fastapi = "*"
-uvicorn = "*"
 numpy = "*"
-python-dotenv = "*"
+imgbeddings = "*"
+opencv-python = "*"
+psycopg2-binary = "*"
+psycopg2 = "*"
+uvicorn = "*"
+huggingface-hub = "==0.25.2"
 
 [dev-packages]
 

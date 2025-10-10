@@ -2,24 +2,45 @@ import os
 import cv2
 import psycopg2
 import numpy as np
-from typing import Tuple, List
 from imgbeddings import imgbeddings
-from psycopg2.extensions import cursor, connection
 from dotenv import load_dotenv
+from contextlib import contextmanager
+from typing import Generator
 
 load_dotenv()
 
 # Constants
-HAAR_CASCADE_PATH: str = "haarcascade_frontalface_default.xml"
+HAAR_CASCADE_PATH = "haarcascade_frontalface_default.xml"
 
 # Initialize face detection
-haar_cascade: cv2.CascadeClassifier = cv2.CascadeClassifier(HAAR_CASCADE_PATH)
+haar_cascade = cv2.CascadeClassifier(HAAR_CASCADE_PATH)
 
-# Database connection
-try:
-    conn: connection = psycopg2.connect(os.getenv("POSTGRES_SERVICE_URI"))
-except psycopg2.Error as e:
-    raise RuntimeError(f"Failed to connect to the database: {e}")
+@contextmanager
+def get_db_connection() -> Generator[psycopg2.extensions.connection, None, None]:
+    """Context manager for database connections"""
+    conn = None
+    try:
+        conn = psycopg2.connect(os.getenv("POSTGRES_SERVICE_URI"))
+        yield conn
+    except psycopg2.Error as e:
+        raise RuntimeError(f"Database connection error: {e}")
+    finally:
+        if conn is not None:
+            conn.close()
+
+@contextmanager
+def get_db_cursor(conn: psycopg2.extensions.connection) -> Generator[psycopg2.extensions.cursor, None, None]:
+    """Context manager for database cursors"""
+    cur = None
+    try:
+        cur = conn.cursor()
+        yield cur
+    except psycopg2.Error as e:
+        conn.rollback()
+        raise RuntimeError(f"Database cursor error: {e}")
+    finally:
+        if cur is not None:
+            cur.close()
 
 def register_face(img: np.ndarray, enrollment_no: str) -> bool:
     """
@@ -30,22 +51,26 @@ def register_face(img: np.ndarray, enrollment_no: str) -> bool:
         enrollment_no: Unique identifier for the person
         
     Returns:
-        bool: True if registration was successful, False otherwise
+        bool: True if registration was successful
         
     Raises:
-        ValueError: If no faces are detected in the image
-        psycopg2.Error: If there's an error with the database operation
+        ValueError: If no faces are detected in the image or invalid input
+        RuntimeError: If there's an error with the database operation
     """
     if not isinstance(img, np.ndarray):
-        raise TypeError(f"Expected image to be a numpy array, got {type(img).__name__}")
-    if not isinstance(enrollment_no, str):
-        raise TypeError(f"Expected enrollment_no to be a string, got {type(enrollment_no).__name__}")
-        
+        raise ValueError(f"Expected image to be a numpy array, got {type(img).__name__}")
+    
+    if not enrollment_no or not isinstance(enrollment_no, str):
+        raise ValueError("Valid enrollment number is required")
+    
     # Convert image to grayscale for face detection
-    gray_img: np.ndarray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    try:
+        gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    except Exception as e:
+        raise ValueError(f"Invalid image format: {str(e)}")
     
     # Detect faces in the image
-    faces: Tuple[Tuple[int, int, int, int], ...] = haar_cascade.detectMultiScale(
+    faces = haar_cascade.detectMultiScale(
         gray_img, 
         scaleFactor=1.05, 
         minNeighbors=2, 
@@ -56,36 +81,49 @@ def register_face(img: np.ndarray, enrollment_no: str) -> bool:
         raise ValueError("No faces detected in the provided image")
     
     try:
-        cur: cursor = conn.cursor()
+        with get_db_connection() as conn:
+            with get_db_cursor(conn) as cur:
+                # Process each detected face (though we typically expect just one)
+                for (x, y, w, h) in faces[:1]:  # Limit to first face found
+                    # Extract face region with boundary checks
+                    h, w = img.shape[:2]
+                    x1, y1 = max(0, x), max(0, y)
+                    x2, y2 = min(w, x1 + w), min(h, y1 + h)
+                    
+                    if x1 >= x2 or y1 >= y2:
+                        continue  # Skip invalid face regions
+                        
+                    cropped_image = img[y1:y2, x1:x2]
+                    
+                    # Generate embedding
+                    try:
+                        ibed = imgbeddings()
+                        embedding = ibed.to_embeddings(cropped_image)
+                        embedding_list = embedding[0].tolist()
+                    except Exception as e:
+                        raise RuntimeError(f"Failed to generate face embedding: {str(e)}")
+                    
+                    # Store in database
+                    try:
+                        cur.execute(
+                            """
+                            INSERT INTO registed_faces (enrollment_id, embedding)
+                            VALUES (%s, %s)
+                            ON CONFLICT (enrollment_id) 
+                            DO UPDATE SET embedding = EXCLUDED.embedding
+                            """,
+                            (enrollment_no, embedding_list)
+                        )
+                        conn.commit()
+                    except psycopg2.Error as e:
+                        conn.rollback()
+                        raise RuntimeError(f"Database error: {str(e)}")
         
-        # Process each detected face
-        for (x, y, w, h) in faces:
-            # Extract face region
-            cropped_image: np.ndarray = img[y:y + h, x:x + w]
-            
-            # Generate embedding
-            ibed: imgbeddings = imgbeddings()
-            embedding: List[List[float]] = ibed.to_embeddings(cropped_image)
-            
-            # Store in database
-            cur.execute(
-                """
-                INSERT INTO registed_faces (enrollment_id, embedding)
-                VALUES (%s, %s)
-                ON CONFLICT (enrollment_id) 
-                DO UPDATE SET embedding = EXCLUDED.embedding
-                """,
-                (enrollment_no, embedding[0].tolist())
-            )
-        
-        # Commit the transaction
-        conn.commit()
         return True
         
     except Exception as e:
-        conn.rollback()
-        raise
-    finally:
-        if 'cur' in locals():
-            cur.close()
+        # Re-raise with appropriate error type
+        if isinstance(e, (ValueError, RuntimeError)):
+            raise
+        raise RuntimeError(f"Unexpected error during face registration: {str(e)}")
 
