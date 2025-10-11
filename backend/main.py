@@ -1,16 +1,14 @@
 import uvicorn
 import logging
-from fastapi import FastAPI, HTTPException, Response, status
+from fastapi import FastAPI, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from face_register import register_face
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field
 import base64
 import numpy as np
 import cv2
-import json
-from typing import Dict, Any, Optional
+from typing import Dict
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,10 +23,6 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
-
-class RegisterRequest(BaseModel):
-    enrollment_no: str = Field(..., min_length=1, description="Unique enrollment identifier")
-    image: str = Field(..., min_length=100, description="Base64 encoded image string")
 
 class ErrorResponse(BaseModel):
     detail: str
@@ -54,19 +48,22 @@ async def runtime_error_exception_handler(request, exc: RuntimeError):
     400: {"model": ErrorResponse, "description": "Invalid request or image data"},
     500: {"model": ErrorResponse, "description": "Internal server error"}
 })
-async def register_face_endpoint(request: RegisterRequest) -> Dict[str, str]:
+async def register_face_endpoint(
+    enrollment_no: str = File(..., description="Unique enrollment identifier"),
+    image: UploadFile = File(..., description="Image file containing a face")
+) -> Dict[str, str]:
     """
     Register a face by processing the provided image and storing the face embedding.
     
     - **enrollment_no**: Unique identifier for the person
     - **image**: Base64 encoded image string containing a face
     """
-    logger.info(f"Processing face registration for enrollment: {request.enrollment_no}")
+    logger.info(f"Processing face registration for enrollment: {enrollment_no}")
     
     try:
         # Decode the base64 image
         try:
-            image_bytes = base64.b64decode(request.image)
+            image_bytes = await image.read()
             nparr = np.frombuffer(image_bytes, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
@@ -79,8 +76,8 @@ async def register_face_endpoint(request: RegisterRequest) -> Dict[str, str]:
         
         # Register the face
         try:
-            register_face(img, request.enrollment_no)
-            logger.info(f"Successfully registered face for enrollment: {request.enrollment_no}")
+            register_face(img, enrollment_no)
+            logger.info(f"Successfully registered face for enrollment: {enrollment_no}")
             return {
                 "status": "success", 
                 "message": "Face registered successfully"

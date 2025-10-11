@@ -6,6 +6,7 @@ from imgbeddings import imgbeddings
 from dotenv import load_dotenv
 from contextlib import contextmanager
 from typing import Generator
+from PIL import Image
 
 load_dotenv()
 
@@ -97,8 +98,10 @@ def register_face(img: np.ndarray, enrollment_no: str) -> bool:
                     
                     # Generate embedding
                     try:
+                        pil_image = Image.fromarray(cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB))
+                        
                         ibed = imgbeddings()
-                        embedding = ibed.to_embeddings(cropped_image)
+                        embedding = ibed.to_embeddings(pil_image)
                         embedding_list = embedding[0].tolist()
                     except Exception as e:
                         raise RuntimeError(f"Failed to generate face embedding: {str(e)}")
@@ -107,10 +110,10 @@ def register_face(img: np.ndarray, enrollment_no: str) -> bool:
                     try:
                         cur.execute(
                             """
-                            INSERT INTO registed_faces (enrollment_id, embedding)
+                            INSERT INTO registed_faces (enrollment_no, embeddings)
                             VALUES (%s, %s)
-                            ON CONFLICT (enrollment_id) 
-                            DO UPDATE SET embedding = EXCLUDED.embedding
+                            ON CONFLICT (enrollment_no) 
+                            DO UPDATE SET embeddings = EXCLUDED.embeddings
                             """,
                             (enrollment_no, embedding_list)
                         )
