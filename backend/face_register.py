@@ -1,12 +1,9 @@
-import os
 import cv2
-import psycopg2
 import numpy as np
 from imgbeddings import imgbeddings
 from dotenv import load_dotenv
-from contextlib import contextmanager
-from typing import Generator
 from PIL import Image
+from database import get_db_connection, get_db_cursor
 
 load_dotenv()
 
@@ -16,32 +13,6 @@ HAAR_CASCADE_PATH = "haarcascade_frontalface_default.xml"
 # Initialize face detection
 haar_cascade = cv2.CascadeClassifier(HAAR_CASCADE_PATH)
 
-@contextmanager
-def get_db_connection() -> Generator[psycopg2.extensions.connection, None, None]:
-    """Context manager for database connections"""
-    conn = None
-    try:
-        conn = psycopg2.connect(os.getenv("POSTGRES_SERVICE_URI"))
-        yield conn
-    except psycopg2.Error as e:
-        raise RuntimeError(f"Database connection error: {e}")
-    finally:
-        if conn is not None:
-            conn.close()
-
-@contextmanager
-def get_db_cursor(conn: psycopg2.extensions.connection) -> Generator[psycopg2.extensions.cursor, None, None]:
-    """Context manager for database cursors"""
-    cur = None
-    try:
-        cur = conn.cursor()
-        yield cur
-    except psycopg2.Error as e:
-        conn.rollback()
-        raise RuntimeError(f"Database cursor error: {e}")
-    finally:
-        if cur is not None:
-            cur.close()
 
 def register_face(img: np.ndarray, enrollment_no: str) -> bool:
     """
