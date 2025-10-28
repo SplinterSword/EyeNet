@@ -68,7 +68,7 @@ def recognize_face(face_image):
                 
                 result = cursor.fetchone()
                 
-                if result and result[1] < 15:  # Threshold for face matching
+                if result and result[1] < 20:  # Threshold for face matching
                     return True, result[0], result[1]
                 return False, "Unknown", result[1] if result else 1.0
                 
@@ -146,7 +146,7 @@ def process_frame(frame_bgr):
         # Rate-limit console I/O (max once per second per category)
         if not face['recognized']:
             if time.monotonic() - _last_alert_ts > 1.0:
-                print(f"Security Alert: Unknown face detected at {x},{y}")
+                print(f"Security Alert: Unknown face detected at {x},{y} with confidence {face['confidence']:.2f}")
                 globals()['_last_alert_ts'] = time.monotonic()
         else:
             if time.monotonic() - _last_recog_ts > 1.0:
