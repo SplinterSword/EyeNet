@@ -1,0 +1,13 @@
+Flask
+opencv-python
+face-recognition
+numpy
+torch
+torchvision
+torchaudio
+ultralytics
+python-dotenv
+requests
+Pillow
+email-validator
+twilio

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Campus Surveillance Dashboard</title>
+  <style>
+    body {
+      background-color: #0f0f0f;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1 {
+      color: #ff2d2d;
+      margin: 20px 0;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      width: 95%;
+      gap: 25px;
+    }
+
+    .video-box {
+      flex: 1.2;
+      text-align: center;
+      border: 2px solid #ff2d2d;
+      border-radius: 10px;
+      background: #1a1a1a;
+      padding: 10px;
+      height: 600px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .video-box h2 {
+      margin-bottom: 10px;
+    }
+
+    .camera-feed {
+      border-radius: 10px;
+      border: 2px solid #333;
+      width: 100%;
+      height: 100%;
+      max-height: 520px;
+      object-fit: cover;
+      background: black;
+    }
+
+    .alerts-box {
+      flex: 1;
+      background: #1a1a1a;
+      border: 2px solid #ff2d2d;
+      border-radius: 10px;
+      padding: 10px;
+      height: 600px;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 8px;
+      border-bottom: 1px solid #333;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    th {
+      background: #ff2d2d;
+      color: white;
+      position: sticky;
+      top: 0;
+    }
+
+    img.snapshot {
+      width: 90px;
+      border-radius: 6px;
+      border: 1px solid #444;
+    }
+
+    .footer-note {
+      color: #888;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Campus Surveillance Dashboard</h1>
+
+  <div class="container">
+    <!-- Live Camera Feed -->
+    <div class="video-box">
+      <h2>🎥 Live Camera Feed</h2>
+      <img id="liveFeed" class="camera-feed" src="{{ url_for('video_feed') }}" alt="Camera Feed">
+      <p class="footer-note">Live stream from surveillance camera</p>
+    </div>
+
+    <!-- Alerts -->
+    <div class="alerts-box">
+      <h2>⚠️ Real-Time Alerts</h2>
+      <table id="alertsTable">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Event</th>
+            <th>Description</th>
+            <th>Image</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+const tbody = document.querySelector("#alertsTable tbody");
+
+const evtSource = new EventSource("/live_alerts");
+evtSource.onmessage = (e) => {
+  const alert = JSON.parse(e.data);
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td>${alert.timestamp || "-"}</td>
+    <td>${alert.event_type || "-"}</td>
+    <td>${alert.description || "-"}</td>
+    <td>${alert.image ? `<img class="snapshot" src="/${alert.image}" alt="snapshot">` : "N/A"}</td>
+  `;
+  tbody.insertBefore(row, tbody.firstChild);
+};
+
+// Load initial alerts for baseline
+async function fetchInitialAlerts() {
+  const res = await fetch("/alerts_data");
+  const data = await res.json();
+
+  data.forEach(a => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${a.timestamp || "-"}</td>
+      <td>${a.event_type || "-"}</td>
+      <td>${a.description || "-"}</td>
+      <td>${a.image ? `<img class="snapshot" src="/${a.image}" alt="snapshot">` : "N/A"}</td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+fetchInitialAlerts();
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: campus-surveillance-backend
+    volumes:
+      - ./data:/app/data
+      - ./src:/app/src
+    ports:
+      - "5001:5000"
+    environment:
+      - FLASK_APP=src.dashboard.app
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    devices:
+      - "/dev/video0:/dev/video0"  # Pass through the camera device
+    privileged: true  # Required for some camera access
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: campus-surveillance-frontend
+    volumes:
+      - ./data:/app/data
+      - ./src/dashboard:/app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=production
+    restart: unless-stopped
+
+volumes:
+  data:

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus Surveillance Dashboard</title>
+  <style>
+    body { background: #101010; color: white; font-family: Arial; text-align: center; }
+    h1 { color: #ff2d2d; }
+    .feed { margin-top: 20px; }
+    iframe { border: 2px solid #ff2d2d; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Campus Surveillance Dashboard</h1>
+  <div class="feed">
+    <img src="{{ url_for('video_feed') }}" width="700" height="500">
+  </div>
+
+  <div style="margin-top: 40px;">
+    <h2>⚠️ Recent Alerts (Coming Soon)</h2>
+    <p>Uniform violations, anomalies, and student recognition logs will appear here.</p>
+  </div>
+</body>
+</html>

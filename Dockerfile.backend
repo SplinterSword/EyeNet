@@ -1,0 +1,33 @@
+# Use Debian Bullseye slim as base for better compatibility
+FROM python:3.9-slim-bullseye
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the entire project
+COPY . .
+
+# Expose the port the app runs on
+EXPOSE 5000
+
+# Run face encoding during build
+RUN mkdir -p /app/data
+RUN python -m src.encoders.encode_faces
+
+# Command to run the face recognition service
+CMD ["python", "-m", "src.realtime.face_recognition_live"]
