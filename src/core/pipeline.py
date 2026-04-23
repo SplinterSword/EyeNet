@@ -26,6 +26,14 @@ class DetectionPipeline:
     tracker, and publishes DetectionEvents to the EventBus.
     """
 
+    # Color palette for annotations (BGR)
+    _COLORS = {
+        "known_face": (0, 200, 0),       # green
+        "unknown_face": (0, 160, 255),    # orange
+        "hazard": (0, 0, 240),            # red
+        "default": (200, 200, 0),         # cyan
+    }
+
     def __init__(self, frame_buffer: SharedFrameBuffer, event_bus: EventBus):
         self.frame_buffer = frame_buffer
         self.event_bus = event_bus
@@ -35,6 +43,10 @@ class DetectionPipeline:
         self._last_frame_id = -1
         self._thread: threading.Thread | None = None
         self._metrics_thread: threading.Thread | None = None
+
+        # Annotated frame for the local display window
+        self._annotated_frame = None
+        self._annotated_lock = threading.Lock()
 
         # Live metrics (read by dashboard)
         self.metrics = {
@@ -61,6 +73,13 @@ class DetectionPipeline:
         if self._metrics_thread:
             self._metrics_thread.join(timeout=3)
         logger.info("DetectionPipeline stopped.")
+
+    def get_annotated_frame(self):
+        """Return the latest frame with detection overlays drawn on it."""
+        with self._annotated_lock:
+            if self._annotated_frame is None:
+                return None
+            return self._annotated_frame.copy()
 
     # ── main loop ───────────────────────────────────────────────────────
     def _run(self):
@@ -132,6 +151,10 @@ class DetectionPipeline:
                         },
                     ))
 
+            # 5. Draw annotations on frame copy
+            annotated = frame.copy()
+            self._draw_detections(annotated, tracked)
+
             elapsed_ms = (time.monotonic() - t0) * 1000
             self.metrics.update({
                 "fps": self.frame_buffer.fps,
@@ -139,6 +162,12 @@ class DetectionPipeline:
                 "faces": sum(1 for d in all_detections if "face" in d["label"]),
                 "processing_ms": round(elapsed_ms, 1),
             })
+
+            # Draw metrics overlay
+            self._draw_overlay(annotated, self.metrics)
+
+            with self._annotated_lock:
+                self._annotated_frame = annotated
 
     # ── severity classification ─────────────────────────────────────────
     @staticmethod
@@ -151,6 +180,70 @@ class DetectionPipeline:
         if "unknown" in label_lower:
             return Severity.MEDIUM
         return Severity.LOW
+
+    # ── annotation helpers ───────────────────────────────────────────────
+    def _draw_detections(self, frame, tracked_objects):
+        """Draw bounding boxes, labels, confidence, and track IDs on the frame."""
+        import numpy as np
+
+        for track in tracked_objects:
+            label = track.label
+            # Choose color based on detection type
+            if "unknown" in label.lower():
+                color = self._COLORS["unknown_face"]
+            elif "face:" in label:
+                color = self._COLORS["known_face"]
+            elif "hazard:" in label:
+                color = self._COLORS["hazard"]
+            else:
+                color = self._COLORS["default"]
+
+            x1, y1, x2, y2 = track.bbox
+            thickness = 2
+
+            # Draw bounding box
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
+
+            # Build label text
+            display_label = label.split(":")[-1] if ":" in label else label
+            conf_pct = int(track.confidence * 100)
+            text = f"#{track.track_id} {display_label} {conf_pct}%"
+
+            # Draw label background
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.5
+            (tw, th), baseline = cv2.getTextSize(text, font, font_scale, 1)
+            label_y = max(y1 - 6, th + 6)
+            cv2.rectangle(frame, (x1, label_y - th - 6), (x1 + tw + 8, label_y + 2), color, -1)
+            cv2.putText(frame, text, (x1 + 4, label_y - 4), font, font_scale, (255, 255, 255), 1, cv2.LINE_AA)
+
+    @staticmethod
+    def _draw_overlay(frame, metrics: dict):
+        """Draw a translucent metrics HUD in the top-left corner."""
+        import numpy as np
+
+        lines = [
+            f"FPS: {metrics.get('fps', 0):.0f}",
+            f"Detections: {metrics.get('detections', 0)}",
+            f"Faces: {metrics.get('faces', 0)}",
+            f"Latency: {metrics.get('processing_ms', 0):.0f}ms",
+        ]
+
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.5
+        line_height = 22
+        pad = 10
+        box_w = 180
+        box_h = pad + line_height * len(lines) + pad
+
+        # Semi-transparent background
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (8, 8), (8 + box_w, 8 + box_h), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.6, frame, 0.4, 0, frame)
+
+        for i, line in enumerate(lines):
+            y = 8 + pad + (i + 1) * line_height - 4
+            cv2.putText(frame, line, (16, y), font, font_scale, (0, 255, 200), 1, cv2.LINE_AA)
 
     # ── periodic metrics writer ─────────────────────────────────────────
     def _metrics_writer(self):

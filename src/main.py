@@ -7,6 +7,8 @@ import signal
 import sys
 import threading
 
+import cv2
+
 from src.config import Config
 from src.core.logging_config import setup_logging
 
@@ -125,21 +127,31 @@ def main():
     dashboard_thread.start()
     logger.info("Dashboard available at http://localhost:5000")
 
-    # ── 6. Graceful shutdown ────────────────────────────────────────────
-    shutdown_event = threading.Event()
+    # ── 6. Local detection display window ─────────────────────────────────
+    signal.signal(signal.SIGINT, lambda s, f: None)  # let cv2 handle Ctrl+C
+    signal.signal(signal.SIGTERM, lambda s, f: None)
 
-    def _signal_handler(signum, frame):
-        logger.info("Received signal %s — shutting down...", signum)
-        shutdown_event.set()
-
-    signal.signal(signal.SIGINT, _signal_handler)
-    signal.signal(signal.SIGTERM, _signal_handler)
-
-    logger.info("System running. Press Ctrl+C to stop.")
+    logger.info("System running. Detection window open — press 'q' to stop.")
     try:
-        shutdown_event.wait()
+        while True:
+            # Try the annotated frame first (has bounding boxes + overlay)
+            display = pipeline.get_annotated_frame()
+
+            # Fall back to raw camera feed if pipeline hasn't produced a frame yet
+            if display is None:
+                _, display = frame_buffer.read()
+
+            if display is not None:
+                cv2.imshow("EyeNet - Detection View", display)
+
+            key = cv2.waitKey(30) & 0xFF
+            if key == ord("q"):
+                logger.info("'q' pressed — shutting down...")
+                break
     except KeyboardInterrupt:
-        pass
+        logger.info("Ctrl+C — shutting down...")
+
+    cv2.destroyAllWindows()
 
     # Cleanup
     pipeline.stop()
