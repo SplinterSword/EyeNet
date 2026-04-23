@@ -1,106 +1,115 @@
 # src/detectors/anomaly_detector.py
-from ultralytics import YOLO
-import numpy as np
-import cv2
+"""YOLOv8 hazard detection with per-class confidence thresholds and temporal filtering."""
+
+import logging
 import time
 from collections import defaultdict, deque
 
-# Choose model: 'yolov8n.pt' (fast) or 'yolov8m.pt' (more accurate)
-MODEL_WEIGHTS = "yolov8m.pt"   # try yolov8m for higher accuracy
-CONF_THRESHOLD = 0.5           # raise to 0.6-0.7 if you still have FP
-MIN_BBOX_AREA_RATIO = 0.01     # ignore boxes smaller than 1% of frame area
-MIN_CONSECUTIVE_FRAMES = 3     # require N consecutive frames to confirm
+import cv2
+import numpy as np
+from ultralytics import YOLO
 
-model = YOLO(MODEL_WEIGHTS)
+from src.config import Config
 
-# Hazard keywords (will match substrings in class names)
+logger = logging.getLogger(__name__)
+
+# ── Configuration ───────────────────────────────────────────────────────
+MODEL_WEIGHTS = Config.YOLO_HAZARD_MODEL
+MIN_BBOX_AREA_RATIO = 0.01
+MIN_CONSECUTIVE_FRAMES = Config.HAZARD_CONSECUTIVE_FRAMES
+
+# Per-class confidence thresholds (replaces flat CONF_THRESHOLD)
+CLASS_THRESHOLDS: dict[str, float] = Config.HAZARD_CLASS_THRESHOLDS
+DEFAULT_THRESHOLD: float = Config.HAZARD_CONF_THRESHOLD
+
+# Hazard keywords (matched as substrings in YOLO class names)
 HAZARD_KEYWORDS = {
     "knife", "gun", "fire", "smoke", "axe", "crowbar", "bat", "sword",
-    "explosive", "bomb", "lighter", "chainsaw", "scissors", "hammer"
+    "explosive", "bomb", "lighter", "chainsaw", "scissors", "hammer",
 }
 
-# Keep short history per label to require persistence
-_histories = defaultdict(lambda: deque(maxlen=MIN_CONSECUTIVE_FRAMES))
+# ── Model loading (singleton) ──────────────────────────────────────────
+_model: YOLO | None = None
 
-def _is_hazard_label(label):
+
+def _get_model() -> YOLO:
+    global _model
+    if _model is None:
+        logger.info("Loading hazard model: %s", MODEL_WEIGHTS)
+        _model = YOLO(MODEL_WEIGHTS)
+    return _model
+
+
+# ── Temporal histories ──────────────────────────────────────────────────
+_histories: dict[str, deque] = defaultdict(lambda: deque(maxlen=MIN_CONSECUTIVE_FRAMES))
+
+
+def _is_hazard_label(label: str) -> bool:
     lab = label.lower()
-    for k in HAZARD_KEYWORDS:
-        if k in lab:
-            return True
-    return False
+    return any(k in lab for k in HAZARD_KEYWORDS)
 
-def detect_anomalies(frame, conf_threshold=CONF_THRESHOLD):
+
+def _get_threshold(label: str) -> float:
+    """Return the per-class confidence threshold, or the default."""
+    lab = label.lower()
+    for key, thresh in CLASS_THRESHOLDS.items():
+        if key in lab:
+            return thresh
+    return DEFAULT_THRESHOLD
+
+
+# ── Public API ──────────────────────────────────────────────────────────
+def detect_anomalies(frame: np.ndarray) -> tuple[bool, list[dict]]:
+    """Run hazard detection on *frame*.
+
+    Returns ``(confirmed_bool, list_of_detections)`` where each detection
+    is ``{'label': str, 'conf': float, 'box': (x1, y1, x2, y2)}``.
     """
-    Run model on frame and return confirmed hazards.
-    Returns: (confirmed_bool, list_of_detections)
-    where each detection is dict: {'label': str, 'conf': float, 'box': (x1,y1,x2,y2)}
-    """
+    model = _get_model()
     h, w = frame.shape[:2]
-    results = model.predict(source=frame, conf=conf_threshold, verbose=False)
-    found = []
+
+    results = model.predict(source=frame, conf=DEFAULT_THRESHOLD * 0.8, verbose=False)
+    found: list[dict] = []
 
     for r in results:
         for box in r.boxes:
             conf = float(box.conf)
             cls_id = int(box.cls)
             label = model.names[cls_id]
-            # simple hazard filter
+
             if not _is_hazard_label(label):
                 continue
-            # bbox coordinates
+
+            # Per-class confidence threshold
+            if conf < _get_threshold(label):
+                continue
+
             x1, y1, x2, y2 = map(int, box.xyxy[0])
             area = max(0, (x2 - x1) * (y2 - y1))
             if area < MIN_BBOX_AREA_RATIO * (w * h):
-                # ignore too-small boxes
                 continue
-            found.append({'label': label.lower(), 'conf': conf, 'box': (x1, y1, x2, y2)})
 
-    # Update histories and confirm those with persistence
-    confirmed = []
-    current_labels = [d['label'] for d in found]
-    timestamp = time.time()
+            found.append({"label": label.lower(), "conf": conf, "box": (x1, y1, x2, y2)})
 
-    # add counts for detected labels this frame
-    for lbl in set(current_labels):
+    # ── Temporal filtering ──────────────────────────────────────────────
+    current_labels = {d["label"] for d in found}
+
+    for lbl in current_labels:
         _histories[lbl].append(1)
-    # add zero for labels not seen this frame (so history shows gaps)
     for lbl in list(_histories.keys()):
         if lbl not in current_labels:
             _histories[lbl].append(0)
 
-    # confirm labels that have >= MIN_CONSECUTIVE_FRAMES ones in history
+    confirmed: list[dict] = []
     for lbl, dq in _histories.items():
         if sum(dq) >= MIN_CONSECUTIVE_FRAMES:
-            # find the best detection for this label in 'found' list
-            best = max((d for d in found if d['label'] == lbl), key=lambda x: x['conf'], default=None)
+            best = max((d for d in found if d["label"] == lbl), key=lambda x: x["conf"], default=None)
             if best:
                 confirmed.append(best)
 
-    # Optionally remove histories for labels unseen for long
+    # Prune dead histories
     for lbl in list(_histories.keys()):
         if sum(_histories[lbl]) == 0 and len(_histories[lbl]) >= _histories[lbl].maxlen:
             del _histories[lbl]
 
     return (len(confirmed) > 0), confirmed
-
-# Standalone test
-if __name__ == "__main__":
-    cap = cv2.VideoCapture(0)
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        ok, detections = detect_anomalies(frame)
-        if ok:
-            for d in detections:
-                lbl = d['label']
-                conf = d['conf']
-                x1,y1,x2,y2 = d['box']
-                cv2.rectangle(frame, (x1,y1), (x2,y2), (0,0,255), 2)
-                cv2.putText(frame, f"{lbl} {int(conf*100)}%", (x1,y1-8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
-                print(f"ALERT: {lbl} {conf:.2f}")
-        cv2.imshow("Anomaly Detector (press q to quit)", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-    cap.release()
-    cv2.destroyAllWindows()

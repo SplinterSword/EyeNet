@@ -1,64 +1,121 @@
-<!-- src/dashboard/templates/login.html -->
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <title>Campus Surveillance | Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EyeNet — Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
-            font-family: 'Inter', sans-serif;
-            background: #0b0b0b;
-            color: white;
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #0a0a0f;
+            color: #e2e8f0;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            margin: 0;
         }
+
         .login-box {
-            background: #111;
+            background: #12121a;
             padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(255, 0, 0, 0.4);
-            width: 340px;
+            border-radius: 12px;
+            border: 1px solid #1e1e2e;
+            width: 360px;
             text-align: center;
+            box-shadow: 0 0 40px rgba(239, 68, 68, 0.08);
         }
-        h2 { color: #ff3b3b; margin-bottom: 25px; }
-        input[type="text"], input[type="password"] {
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .logo .dot {
+            width: 10px;
+            height: 10px;
+            background: #ef4444;
+            border-radius: 50%;
+        }
+
+        .subtitle {
+            color: #64748b;
+            font-size: 13px;
+            margin-bottom: 28px;
+        }
+
+        input[type="text"],
+        input[type="password"] {
             width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: none;
-            border-radius: 6px;
-            background: #222;
-            color: white;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+            border: 1px solid #1e1e2e;
+            border-radius: 8px;
+            background: #0a0a0f;
+            color: #e2e8f0;
             font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
         }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            border-color: #ef4444;
+        }
+
         input[type="submit"] {
             width: 100%;
-            background: #ff3b3b;
+            background: #ef4444;
             color: white;
             border: none;
             padding: 12px;
-            border-radius: 6px;
-            font-weight: bold;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            font-family: inherit;
             cursor: pointer;
-            margin-top: 15px;
+            margin-top: 8px;
+            transition: background 0.2s;
         }
-        .error { color: #ff5555; margin-top: 10px; }
+
+        input[type="submit"]:hover {
+            background: #dc2626;
+        }
+
+        .error {
+            color: #ef4444;
+            margin-top: 12px;
+            font-size: 13px;
+        }
     </style>
 </head>
+
 <body>
     <div class="login-box">
-        <h2>Admin Login</h2>
+        <div class="logo"><span class="dot"></span> EyeNet</div>
+        <p class="subtitle">Campus Surveillance System</p>
         <form method="POST">
-            <input type="text" name="username" placeholder="Username" required>
-            <input type="password" name="password" placeholder="Password" required>
-            <input type="submit" value="Login">
+            <input type="text" name="username" placeholder="Username" required autocomplete="username">
+            <input type="password" name="password" placeholder="Password" required autocomplete="current-password">
+            <input type="submit" value="Sign In">
         </form>
         {% if error %}
-            <div class="error">{{ error }}</div>
+        <div class="error">{{ error }}</div>
         {% endif %}
     </div>
 </body>
+
 </html>

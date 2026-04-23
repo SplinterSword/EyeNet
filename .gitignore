@@ -1,0 +1,14 @@
+# ── EyeNet .gitignore ────────────────────────────────────────
+.env
+__pycache__/
+*.pyc
+*.pyo
+data/
+*.pt
+!yolov8n.pt
+!yolov8m.pt
+.vscode/
+.idea/
+*.egg-info/
+dist/
+build/
