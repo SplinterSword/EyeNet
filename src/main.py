@@ -68,16 +68,13 @@ def main():
             return
 
         score = compute_anomaly_score(event)
-        # Only send external alerts for score >= 25
-        if score < 25:
-            return
 
-        if event.event_type == "unknown_face":
+        if event.event_type == "unknown_face" and score >= 25:
             send_unknown_face_alert(
                 location="Main Campus",
                 image_url=event.image_path,
             )
-        elif event.event_type == "hazard":
+        elif event.event_type == "hazard" and score >= 25:
             item = event.metadata.get("item_name", "unknown")
             conf = event.metadata.get("confidence", 0) * 100
             send_dangerous_item_alert(
@@ -86,17 +83,19 @@ def main():
                 location="Main Campus",
                 image_url=event.image_path,
             )
-        elif event.event_type == "face" and "uniform" in event.description.lower():
-            # Uniform violations for known students
+        elif event.event_type == "uniform_violation":
+            # Send email to the student's JIIT email
             student_roll = event.metadata.get("item_name", "unknown")
             if student_roll != "unknown":
                 from datetime import datetime
+                student_email = f"{student_roll}@mail.jiit.ac.in"
                 send_uniform_violation_email(
                     student_roll=student_roll,
-                    student_email=f"{student_roll}@mail.jiit.ac.in",
+                    student_email=student_email,
                     violation_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     fine_amount=700,
                 )
+                logger.info("Uniform violation email sent to %s", student_email)
 
     # Handler: push to dashboard SSE
     def sse_handler(event: DetectionEvent):

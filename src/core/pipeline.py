@@ -15,6 +15,7 @@ from src.core.tracker import ObjectTracker
 from src.core.database import insert_metrics, prune_old_metrics
 from src.detectors.face_detector import FaceDetector
 from src.detectors.anomaly_detector import detect_anomalies
+from src.detectors.uniform_detector import check_uniform
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class DetectionPipeline:
         "known_face": (0, 200, 0),       # green
         "unknown_face": (0, 160, 255),    # orange
         "hazard": (0, 0, 240),            # red
+        "uniform_violation": (200, 0, 200), # magenta
         "default": (200, 200, 0),         # cyan
     }
 
@@ -94,6 +96,8 @@ class DetectionPipeline:
             all_detections: list[dict] = []
 
             # 1. Face detection + recognition
+            faces: list[dict] = []
+            uniform_violations: list[dict] = []  # collect violations for annotation
             try:
                 faces = self.face_detector.detect(frame)
                 for face in faces:
@@ -102,8 +106,28 @@ class DetectionPipeline:
                         "label": label,
                         "conf": max(0.0, 1.0 - face["distance"]),
                         "box": face["box"],
-                        "_face": face,  # carry original data for uniform check etc.
+                        "_face": face,
                     })
+
+                    # 1b. Uniform check for known faces
+                    if face["is_known"]:
+                        try:
+                            result = check_uniform(frame, face["box"])
+                            if not result["wearing_uniform"]:
+                                roll_no = face["name"]
+                                uniform_violations.append({
+                                    "roll": roll_no,
+                                    "face_box": face["box"],
+                                    "torso_box": result["torso_box"],
+                                    "blue_ratio": result["confidence"],
+                                })
+                                all_detections.append({
+                                    "label": f"uniform_violation:{roll_no}",
+                                    "conf": 1.0 - result["confidence"],  # higher = more certain violation
+                                    "box": result["torso_box"],
+                                })
+                        except Exception:
+                            logger.exception("Uniform check error for %s", face["name"])
             except Exception:
                 logger.exception("Face detection error")
 
@@ -154,6 +178,7 @@ class DetectionPipeline:
             # 5. Draw annotations on frame copy
             annotated = frame.copy()
             self._draw_detections(annotated, tracked)
+            self._draw_uniform_status(annotated, faces, uniform_violations)
 
             elapsed_ms = (time.monotonic() - t0) * 1000
             self.metrics.update({
@@ -184,12 +209,12 @@ class DetectionPipeline:
     # ── annotation helpers ───────────────────────────────────────────────
     def _draw_detections(self, frame, tracked_objects):
         """Draw bounding boxes, labels, confidence, and track IDs on the frame."""
-        import numpy as np
-
         for track in tracked_objects:
             label = track.label
             # Choose color based on detection type
-            if "unknown" in label.lower():
+            if "uniform_violation" in label.lower():
+                color = self._COLORS["uniform_violation"]
+            elif "unknown" in label.lower():
                 color = self._COLORS["unknown_face"]
             elif "face:" in label:
                 color = self._COLORS["known_face"]
@@ -216,6 +241,27 @@ class DetectionPipeline:
             label_y = max(y1 - 6, th + 6)
             cv2.rectangle(frame, (x1, label_y - th - 6), (x1 + tw + 8, label_y + 2), color, -1)
             cv2.putText(frame, text, (x1 + 4, label_y - 4), font, font_scale, (255, 255, 255), 1, cv2.LINE_AA)
+
+    def _draw_uniform_status(self, frame, faces: list, violations: list):
+        """Draw uniform compliance status next to each known face."""
+        violation_rolls = {v["roll"] for v in violations}
+        font = cv2.FONT_HERSHEY_SIMPLEX
+
+        for face in faces:
+            if not face.get("is_known"):
+                continue
+            x1, y1, x2, y2 = face["box"]
+            roll = face["name"]
+
+            if roll in violation_rolls:
+                status = "NO UNIFORM"
+                color = self._COLORS["uniform_violation"]
+            else:
+                status = "UNIFORM OK"
+                color = self._COLORS["known_face"]
+
+            # Draw below the face box
+            cv2.putText(frame, status, (x1, y2 + 16), font, 0.5, color, 2, cv2.LINE_AA)
 
     @staticmethod
     def _draw_overlay(frame, metrics: dict):

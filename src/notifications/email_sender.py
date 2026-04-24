@@ -41,7 +41,7 @@ def send_uniform_violation_email(student_roll, student_email, violation_time, fi
 
         with smtplib.SMTP(Config.SMTP_HOST, Config.SMTP_PORT) as server:
             server.starttls()
-            server.login(Config.SMTP_EMAIL, Config.SMTP_PASSWORD)
+            server.login(Config.SMTP_EMAIL.strip(), Config.SMTP_PASSWORD.strip())
             server.sendmail(Config.SMTP_EMAIL, student_email, msg.as_string())
 
         logger.info("Email sent to %s (%s)", student_roll, student_email)
