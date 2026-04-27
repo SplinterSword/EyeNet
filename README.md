@@ -1,4 +1,3 @@
-\
 # EyeNet — Real-Time Campus Surveillance & Incident Response
 
 EyeNet is a **camera-first, real-time surveillance system** intended for campus / institutional environments. It continuously processes a live video feed and converts computer-vision detections into **actionable incidents**: persisted audit records, real-time dashboards, and automated notifications.
