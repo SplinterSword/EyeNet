@@ -2,165 +2,380 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Campus Surveillance Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EyeNet — Campus Surveillance Dashboard</title>
+  <meta name="description" content="Real-time campus surveillance dashboard with face recognition, hazard detection, and alert management.">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-card: #12121a;
+      --bg-card-hover: #1a1a25;
+      --border: #1e1e2e;
+      --accent: #ef4444;
+      --accent-glow: rgba(239, 68, 68, 0.15);
+      --text-primary: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --severity-critical: #ef4444;
+      --severity-high: #f97316;
+      --severity-medium: #eab308;
+      --severity-low: #22c55e;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      background-color: #0f0f0f;
-      color: white;
-      font-family: Arial, sans-serif;
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────── */
+    .header {
       display: flex;
-      flex-direction: column;
       align-items: center;
-      margin: 0;
-      padding: 0;
-    }
-
-    h1 {
-      color: #ff2d2d;
-      margin: 20px 0;
-      font-size: 28px;
-      font-weight: bold;
-    }
-
-    .container {
-      display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      width: 95%;
-      gap: 25px;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card);
+    }
+    .header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header h1 .dot {
+      width: 8px; height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--accent-glow); }
+      50% { opacity: 0.7; box-shadow: 0 0 0 8px transparent; }
+    }
+    .header-actions { display: flex; gap: 12px; align-items: center; }
+    .header-actions a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+    .header-actions a:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
+    /* ── Metrics bar ────────────────────────────────── */
+    .metrics-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      padding: 16px 24px;
+    }
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      text-align: center;
+    }
+    .metric-card .value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+    .metric-card .label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
     }
 
-    .video-box {
-      flex: 1.2;
-      text-align: center;
-      border: 2px solid #ff2d2d;
-      border-radius: 10px;
-      background: #1a1a1a;
-      padding: 10px;
-      height: 600px;
+    /* ── Main grid ──────────────────────────────────── */
+    .main {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 16px;
+      padding: 0 24px 24px;
+      height: calc(100vh - 180px);
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+    }
+    .card-header {
+      display: flex;
       align-items: center;
-    }
-
-    .video-box h2 {
-      margin-bottom: 10px;
-    }
-
-    .camera-feed {
-      border-radius: 10px;
-      border: 2px solid #333;
-      width: 100%;
-      height: 100%;
-      max-height: 520px;
-      object-fit: cover;
-      background: black;
-    }
-
-    .alerts-box {
-      flex: 1;
-      background: #1a1a1a;
-      border: 2px solid #ff2d2d;
-      border-radius: 10px;
-      padding: 10px;
-      height: 600px;
-      overflow-y: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th, td {
-      padding: 8px;
-      border-bottom: 1px solid #333;
-      text-align: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
       font-size: 14px;
     }
 
-    th {
-      background: #ff2d2d;
-      color: white;
-      position: sticky;
-      top: 0;
+    /* ── Video ──────────────────────────────────────── */
+    .video-container { flex: 1; padding: 10px; display: flex; align-items: center; justify-content: center; }
+    .video-container img {
+      width: 100%; height: 100%;
+      object-fit: contain;
+      border-radius: 8px;
+      background: #000;
     }
 
-    img.snapshot {
-      width: 90px;
+    /* ── Alerts ─────────────────────────────────────── */
+    .alerts-container { flex: 1; overflow-y: auto; }
+    .filter-bar {
+      padding: 10px 18px;
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .filter-bar select {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      border: 1px solid #444;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-family: inherit;
     }
 
-    .footer-note {
-      color: #888;
-      font-size: 12px;
-      margin-top: 5px;
+    .alert-row {
+      display: grid;
+      grid-template-columns: 100px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      transition: background 0.15s;
+      cursor: default;
     }
+    .alert-row:hover { background: var(--bg-card-hover); }
+    .alert-row.acked { opacity: 0.5; }
+
+    .alert-time { color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+    .alert-body { display: flex; flex-direction: column; gap: 2px; }
+    .alert-type { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .alert-desc { color: var(--text-secondary); font-size: 12px; }
+
+    .badge {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .badge-CRITICAL { background: var(--severity-critical); }
+    .badge-HIGH     { background: var(--severity-high); }
+    .badge-MEDIUM   { background: var(--severity-medium); }
+    .badge-LOW      { background: var(--severity-low); }
+
+    .ack-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .ack-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .snapshot { width: 50px; height: 36px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border); }
+
+    /* ── Responsive ─────────────────────────────────── */
+    @media (max-width: 900px) {
+      .main { grid-template-columns: 1fr; height: auto; }
+      .metrics-bar { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 500px) {
+      .metrics-bar { grid-template-columns: 1fr; }
+    }
+
+    /* ── Scrollbar ──────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   </style>
 </head>
-
 <body>
-  <h1>Campus Surveillance Dashboard</h1>
 
-  <div class="container">
-    <!-- Live Camera Feed -->
-    <div class="video-box">
-      <h2>🎥 Live Camera Feed</h2>
-      <img id="liveFeed" class="camera-feed" src="{{ url_for('video_feed') }}" alt="Camera Feed">
-      <p class="footer-note">Live stream from surveillance camera</p>
-    </div>
-
-    <!-- Alerts -->
-    <div class="alerts-box">
-      <h2>⚠️ Real-Time Alerts</h2>
-      <table id="alertsTable">
-        <thead>
-          <tr>
-            <th>Timestamp</th>
-            <th>Event</th>
-            <th>Description</th>
-            <th>Image</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+  <!-- Header -->
+  <div class="header">
+    <h1><span class="dot"></span> EyeNet Surveillance</h1>
+    <div class="header-actions">
+      <a href="/logout">Logout</a>
     </div>
   </div>
 
-  <script>
-const tbody = document.querySelector("#alertsTable tbody");
+  <!-- Metrics bar -->
+  <div class="metrics-bar">
+    <div class="metric-card">
+      <div class="value" id="m-fps">--</div>
+      <div class="label">FPS</div>
+    </div>
+    <div class="metric-card">
+      <div class="value" id="m-detections">--</div>
+      <div class="label">Detections</div>
+    </div>
+    <div class="metric-card">
+      <div class="value" id="m-latency">--</div>
+      <div class="label">Latency (ms)</div>
+    </div>
+    <div class="metric-card">
+      <div class="value" id="m-faces">--</div>
+      <div class="label">Faces</div>
+    </div>
+  </div>
 
+  <!-- Main content -->
+  <div class="main">
+    <!-- Video feed -->
+    <div class="card">
+      <div class="card-header">
+        🎥 Live Camera Feed
+        <span style="font-size:11px; color:var(--text-muted);">LIVE</span>
+      </div>
+      <div class="video-container">
+        <img src="{{ url_for('video_feed') }}" alt="Live Camera Feed">
+      </div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="card">
+      <div class="card-header">
+        ⚠️ Alerts
+        <span id="alert-count" style="font-size:12px; color:var(--text-muted);">0 total</span>
+      </div>
+      <div class="filter-bar">
+        <select id="filter-type">
+          <option value="">All Types</option>
+          <option value="hazard">Hazard</option>
+          <option value="unknown_face">Unknown Face</option>
+          <option value="face">Face / Uniform</option>
+        </select>
+        <select id="filter-severity">
+          <option value="">All Severity</option>
+          <option value="CRITICAL">🔴 Critical</option>
+          <option value="HIGH">🟠 High</option>
+          <option value="MEDIUM">🟡 Medium</option>
+          <option value="LOW">🟢 Low</option>
+        </select>
+      </div>
+      <div class="alerts-container" id="alerts-list">
+        <!-- Alerts inserted here -->
+      </div>
+    </div>
+  </div>
+
+<script>
+// ── Alerts (SSE) ─────────────────────────────────────
+const alertsList = document.getElementById("alerts-list");
+const alertCount = document.getElementById("alert-count");
+let totalAlerts = 0;
+
+function createAlertRow(alert) {
+  const sev = alert.severity || "LOW";
+  const acked = alert.acknowledged ? "acked" : "";
+  const div = document.createElement("div");
+  div.className = `alert-row ${acked}`;
+  div.dataset.type = alert.event_type || "";
+  div.dataset.severity = sev;
+  div.innerHTML = `
+    <div class="alert-time">${alert.timestamp || "-"}</div>
+    <div class="alert-body">
+      <div class="alert-type"><span class="badge badge-${sev}"></span> ${alert.event_type || "-"}</div>
+      <div class="alert-desc">${alert.description || "-"}</div>
+    </div>
+    <div>
+      ${alert.image_path ? `<img class="snapshot" src="/${alert.image_path}" alt="">` : ""}
+      ${alert.id ? `<button class="ack-btn" onclick="ackAlert(${alert.id}, this)">ACK</button>` : ""}
+    </div>
+  `;
+  return div;
+}
+
+// SSE for real-time alerts
 const evtSource = new EventSource("/live_alerts");
 evtSource.onmessage = (e) => {
   const alert = JSON.parse(e.data);
-  const row = document.createElement("tr");
-  row.innerHTML = `
-    <td>${alert.timestamp || "-"}</td>
-    <td>${alert.event_type || "-"}</td>
-    <td>${alert.description || "-"}</td>
-    <td>${alert.image ? `<img class="snapshot" src="/${alert.image}" alt="snapshot">` : "N/A"}</td>
-  `;
-  tbody.insertBefore(row, tbody.firstChild);
+  const row = createAlertRow(alert);
+  alertsList.insertBefore(row, alertsList.firstChild);
+  totalAlerts++;
+  alertCount.textContent = `${totalAlerts} total`;
+  applyFilters();
 };
 
-// Load initial alerts for baseline
-async function fetchInitialAlerts() {
-  const res = await fetch("/alerts_data");
-  const data = await res.json();
+// Load initial alerts
+async function fetchAlerts() {
+  try {
+    const res = await fetch("/alerts_data");
+    const data = await res.json();
+    data.forEach(a => {
+      alertsList.appendChild(createAlertRow(a));
+      totalAlerts++;
+    });
+    alertCount.textContent = `${totalAlerts} total`;
+  } catch (e) { console.error("Failed to load alerts", e); }
+}
+fetchAlerts();
 
-  data.forEach(a => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${a.timestamp || "-"}</td>
-      <td>${a.event_type || "-"}</td>
-      <td>${a.description || "-"}</td>
-      <td>${a.image ? `<img class="snapshot" src="/${a.image}" alt="snapshot">` : "N/A"}</td>
-    `;
-    tbody.appendChild(row);
+// ── Acknowledge ──────────────────────────────────────
+async function ackAlert(id, btn) {
+  try {
+    await fetch(`/api/alerts/${id}/ack`, { method: "PATCH" });
+    btn.closest(".alert-row").classList.add("acked");
+    btn.remove();
+  } catch (e) { console.error("ACK failed", e); }
+}
+
+// ── Filters ──────────────────────────────────────────
+const filterType = document.getElementById("filter-type");
+const filterSeverity = document.getElementById("filter-severity");
+
+function applyFilters() {
+  const type = filterType.value;
+  const sev = filterSeverity.value;
+  document.querySelectorAll(".alert-row").forEach(row => {
+    let show = true;
+    if (type && row.dataset.type !== type) show = false;
+    if (sev && row.dataset.severity !== sev) show = false;
+    row.style.display = show ? "" : "none";
   });
 }
-fetchInitialAlerts();
+filterType.addEventListener("change", applyFilters);
+filterSeverity.addEventListener("change", applyFilters);
+
+// ── Metrics polling ──────────────────────────────────
+async function updateMetrics() {
+  try {
+    const res = await fetch("/api/metrics/latest");
+    const m = await res.json();
+    if (m && m.fps != null) {
+      document.getElementById("m-fps").textContent = Math.round(m.fps);
+      document.getElementById("m-detections").textContent = m.detection_count || 0;
+      document.getElementById("m-latency").textContent = Math.round(m.processing_ms || 0);
+      document.getElementById("m-faces").textContent = m.face_count || 0;
+    }
+  } catch (e) {}
+}
+setInterval(updateMetrics, 3000);
+updateMetrics();
 </script>
 </body>
 </html>
