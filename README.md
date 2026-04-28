@@ -216,7 +216,7 @@ The pipeline maintains a metrics dict (FPS, detection counts, latency) and write
 
 ### High-level data flow
 
-```mermaid
+```text
 flowchart LR
   CAM[Camera / Video Source] --> FB[SharedFrameBuffer]
   FB --> PIPE[DetectionPipeline]
