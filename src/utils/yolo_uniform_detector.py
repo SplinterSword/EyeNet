@@ -23,8 +23,8 @@ def is_wearing_blue_uniform(frame):
 
                 # Convert to HSV for color detection
                 hsv = cv2.cvtColor(person_crop, cv2.COLOR_BGR2HSV)
-                lower_blue = np.array([90, 50, 50])
-                upper_blue = np.array([130, 255, 255])
+                lower_blue = np.array([95, 30, 100])
+                upper_blue = np.array([115, 100, 200])
                 mask = cv2.inRange(hsv, lower_blue, upper_blue)
                 blue_ratio = np.sum(mask > 0) / mask.size
 

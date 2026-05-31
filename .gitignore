@@ -9,6 +9,7 @@ data/
 !yolov8m.pt
 .vscode/
 .idea/
+venv/
 *.egg-info/
 dist/
 build/

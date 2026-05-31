@@ -12,12 +12,12 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # ── HSV range for "light blue" fabric ───────────────────────────────────
-# Light blue shirts typically fall in this HSV range:
-#   H: 90-130  (blue hue family)
-#   S: 40-180  (medium saturation — not grey, not neon)
-#   V: 120-255 (bright enough to be "light")
-LIGHT_BLUE_LOWER = np.array([90, 40, 120])
-LIGHT_BLUE_UPPER = np.array([130, 180, 255])
+# Tight range targeting the specific muted steel-blue / dusty teal uniform:
+#   H: 95-115  (blue family, excludes green and purple)
+#   S: 30-100  (muted, not vivid — matches fabric texture)
+#   V: 100-200 (medium brightness, excludes navy and white)
+LIGHT_BLUE_LOWER = np.array([95, 30, 100])
+LIGHT_BLUE_UPPER = np.array([115, 100, 200])
 
 # Minimum percentage of the torso ROI that must be light blue to count as "wearing uniform"
 UNIFORM_PIXEL_THRESHOLD = 0.25  # 25% of torso region must be light blue
