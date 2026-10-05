@@ -2,8 +2,7 @@
 
 Watch every camera at once, miss nothing — live detection, structured incidents, and instant escalation.
 
-![EyeNet demo](docs/screenshots/dashboard.png)
-<!-- Add a demo gif/screenshot at docs/screenshots/dashboard.png -->
+https://github.com/user-attachments/assets/2c83ea09-a6da-496f-ba90-163a22933c97
 
 ## What is this?
 
@@ -180,13 +179,29 @@ Condensed env — full table lives in `Technical_Documentation.md`:
 
 ```bash
 # .env
-CAMERA_SOURCE=0 / FRAME_WIDTH=640 / FRAME_HEIGHT=480 / TARGET_FPS=15
-FACE_DISTANCE_THRESHOLD=0.55 / HAZARD_CONSECUTIVE_FRAMES=5 / HAZARD_CONF_THRESHOLD=0.6
-YOLO_HAZARD_MODEL=yolov8m.pt / YOLO_PERSON_MODEL=yolov8n.pt
-TWILIO_ACCOUNT_SID= / TWILIO_AUTH_TOKEN= / TWILIO_PHONE_NUMBER= / ADMIN_PHONE_NUMBERS=
-SMTP_EMAIL= / SMTP_PASSWORD= / SMTP_HOST=smtp.gmail.com / SMTP_PORT=587
-SECRET_KEY= / ADMIN_PASSWORD_HASH= / SESSION_LIFETIME_HOURS=8
-DB_PATH=data/eyenet.db / LOG_LEVEL=INFO / LOG_FILE=data/logs/eyenet.log
+CAMERA_SOURCE=0
+FRAME_WIDTH=640
+FRAME_HEIGHT=480
+TARGET_FPS=15
+FACE_DISTANCE_THRESHOLD=0.55
+HAZARD_CONSECUTIVE_FRAMES=5
+HAZARD_CONF_THRESHOLD=0.6
+YOLO_HAZARD_MODEL=yolov8m.pt
+YOLO_PERSON_MODEL=yolov8n.pt
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_PHONE_NUMBER=
+ADMIN_PHONE_NUMBERS=
+SMTP_EMAIL=
+SMTP_PASSWORD=
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SECRET_KEY=
+ADMIN_PASSWORD_HASH=
+SESSION_LIFETIME_HOURS=8
+DB_PATH=data/eyenet.db
+LOG_LEVEL=INFO
+LOG_FILE=data/logs/eyenet.log
 ```
 
 Generate admin hash with:
